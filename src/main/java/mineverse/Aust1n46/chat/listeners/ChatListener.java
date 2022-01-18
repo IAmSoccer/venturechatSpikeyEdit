@@ -544,7 +544,6 @@ public class ChatListener implements Listener {
 
 		if (localChatRecipients.size() == 0) return;
 		//ranged spy
-		Bukkit.getLogger().info(String.format("localspy has %s recipents, those being %s", localChatRecipients.size(), localChatRecipients.toString()));
 
 		format = Format.FormatStringColor(plugin.getConfig().getString("rangedspyprefix")) + format;
 		recipients = localChatRecipients;
