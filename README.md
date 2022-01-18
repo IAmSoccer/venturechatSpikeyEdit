@@ -1,4 +1,9 @@
 # README #
+# Spikey Edit#
+This is my custom version of the plugin. It adds permission based formating, the ability to see ranged spy messages with a diffrent prefix, and the ability to see all pms in console.
+
+
+
 
 Read before making any changes or pull requests!
 
