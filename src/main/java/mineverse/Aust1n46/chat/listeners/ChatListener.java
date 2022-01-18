@@ -2,8 +2,11 @@ package mineverse.Aust1n46.chat.listeners;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.Sets;
 import net.essentialsx.api.v2.services.discord.DiscordService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -13,6 +16,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
 
 import com.comphenix.protocol.events.PacketContainer;
@@ -60,6 +65,7 @@ public class ChatListener implements Listener {
 		String chat = event.getMessage();
 		String format;
 		Set<Player> recipients = event.getRecipients();
+		Set<Player> localChatRecipients = Sets.newHashSet();
 		int recipientCount = recipients.size(); // Don't count vanished players
 		MineverseChatPlayer mcp = MineverseChatAPI.getOnlineMineverseChatPlayer(event.getPlayer());
 		ChatChannel eventChannel = mcp.getCurrentChannel();
@@ -140,9 +146,13 @@ public class ChatListener implements Listener {
 							p.getPlayer().sendMessage(spy);
 						}
 					}
+					Bukkit.getLogger().info(spy.replace("{player_name} m", mcp.getPlayer().getName() + " m").replace("{player_name}", tp.getPlayer().getName()));
 				}
 				tp.getPlayer().sendMessage(send);
 				mcp.getPlayer().sendMessage(echo);
+
+
+
 				if(tp.hasNotifications()) {
 					Format.playMessageSound(tp);
 				}
@@ -345,7 +355,15 @@ public class ChatListener implements Listener {
 			chDistance = eventChannel.getDistance();
 		}
 		
-		format = Format.FormatStringAll(eventChannel.getFormat());
+		//format = Format.FormatStringAll(eventChannel.getFormat());
+		format = null;
+		HashMap<String, String> formatMap = eventChannel.getFormat();
+
+		for (Map.Entry<String, String> entry : formatMap.entrySet()) {
+			Permission perm = new Permission(entry.getKey().replace("_", "."), PermissionDefault.FALSE);
+			if (mcp.getPlayer().hasPermission(perm))  format = Format.FormatStringAll(entry.getValue());
+		}
+		if (format == null) format = formatMap.get("default");
 		
 		filterthis = eventChannel.isFiltered();
 		if(filterthis) {
@@ -437,6 +455,8 @@ public class ChatListener implements Listener {
 					}
 				}
 
+
+
 				if(chDistance > (double) 0 && !bungee && !p.getRangedSpy()) {
 					locreceip = p.getPlayer().getLocation();
 					if(locreceip.getWorld() == mcp.getPlayer().getWorld()) {
@@ -457,10 +477,35 @@ public class ChatListener implements Listener {
 						continue;
 					}
 				}
+
+				if (p.getRangedSpy()) {
+
+					locreceip = p.getPlayer().getLocation();
+					if(locreceip.getWorld() == mcp.getPlayer().getWorld()) {
+						diff = locreceip.subtract(locsender);
+						if(Math.abs(diff.getX()) > chDistance || Math.abs(diff.getZ()) > chDistance || Math.abs(diff.getY()) > chDistance) {
+							localChatRecipients.add(p.getPlayer());
+							recipients.remove(p.getPlayer());
+							continue;
+						}
+						if(!mcp.getPlayer().canSee(p.getPlayer())) {
+							localChatRecipients.add(p.getPlayer());
+							recipients.remove(p.getPlayer());
+							continue;
+						}
+					}
+				}
+
+
+				if (p.getRangedSpy() && chDistance <= 0) {
+					localChatRecipients.add(p.getPlayer());
+				}
 				if(!mcp.getPlayer().canSee(p.getPlayer())) {
 					recipientCount--;
 					continue;
 				}
+
+
 			}
 		}
 		
@@ -488,9 +533,28 @@ public class ChatListener implements Listener {
 		format = Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(mcp.getPlayer(), Format.FormatStringAll(format)));
 		String message = Format.stripColor(format + chat); // UTF-8 encoding issues.
 		int hash = message.hashCode();
-		
 		//Create VentureChatEvent
 		VentureChatEvent ventureChatEvent = new VentureChatEvent(mcp, mcp.getName(), mcp.getNickname(), MineverseChat.getVaultPermission().getPrimaryGroup(mcp.getPlayer()), eventChannel, recipients, recipientCount, format, chat, globalJSON, hash, bungee);
+		//Fire event and wait for other plugin listeners to act on it
+		Bukkit.getServer().getPluginManager().callEvent(ventureChatEvent);
+		//Call method to send the processed chat
+		handleVentureChatEvent(ventureChatEvent);
+		// Reset quick chat flag
+		mcp.setQuickChat(false);
+
+		if (localChatRecipients.size() == 0) return;
+		//ranged spy
+		Bukkit.getLogger().info(String.format("localspy has %s recipents, those being %s", localChatRecipients.size(), localChatRecipients.toString()));
+
+		format = Format.FormatStringColor(plugin.getConfig().getString("rangedspyprefix")) + format;
+		recipients = localChatRecipients;
+		recipientCount = 100;
+		globalJSON = Format.convertToJson(mcp, format, chat);
+		format = Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(mcp.getPlayer(), Format.FormatStringAll(format)));
+		message = Format.stripColor(format + chat); // UTF-8 encoding issues.
+		hash = message.hashCode();
+		//Create VentureChatEvent
+		ventureChatEvent = new VentureChatEvent(mcp, mcp.getName(), mcp.getNickname(), MineverseChat.getVaultPermission().getPrimaryGroup(mcp.getPlayer()), eventChannel, recipients, recipientCount, format, chat, globalJSON, hash, bungee);
 		//Fire event and wait for other plugin listeners to act on it
 		Bukkit.getServer().getPluginManager().callEvent(ventureChatEvent);
 		//Call method to send the processed chat
@@ -530,6 +594,7 @@ public class ChatListener implements Listener {
 				PacketContainer packet = Format.createPacketPlayOutChat(json);
 				Format.sendPacketPlayOutChat(p, packet);
 			}
+
 			Bukkit.getConsoleSender().sendMessage(consoleChat);
 			return;
 		}

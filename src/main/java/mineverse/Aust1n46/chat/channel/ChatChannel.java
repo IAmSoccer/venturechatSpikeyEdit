@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import com.google.common.collect.Maps;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -45,7 +46,7 @@ public class ChatChannel {
 	private double distance;
 	private boolean filter;
 	private boolean bungee;
-	private String format;
+	private HashMap<String, String> format;
 	private int cooldown;
 	private String prefix;
 
@@ -68,7 +69,15 @@ public class ChatChannel {
 			boolean mutable = cs.getBoolean(key + ".mutable", false);
 			boolean filter = cs.getBoolean(key + ".filter", true);
 			boolean bungee = cs.getBoolean(key + ".bungeecord", false);
-			String format = cs.getString(key + ".format", "Default");
+
+
+			//HashMap<String, String> format = cs.map(key + ".format", "Default");
+			HashMap<String, String> format = Maps.newHashMap();
+			for (String str : cs.getConfigurationSection(key + ".format").getKeys(false)) {
+				format.put(str, cs.getString(key + ".format" + "." + str));
+			}
+			if (format.size() == 0) format.put("default", "Default");
+
 			boolean defaultChannel = cs.getBoolean(key + ".default", false);
 			String alias = cs.getString(key + ".alias", "None");
 			double distance = cs.getDouble(key + ".distance", (double) 0);
@@ -88,8 +97,10 @@ public class ChatChannel {
 		// Error handling for missing default channel in the config.
 		if(defaultChatChannel == null) {
 			Bukkit.getConsoleSender().sendMessage(Format.FormatStringAll("&8[&eVentureChat&8]&e - &cNo default channel found!"));
+			HashMap<String, String> form = Maps.newHashMap();
+			form.put("Default", "{venturechat_channel_prefix} {vault_prefix}{player_displayname}&c:");
 			defaultChatChannel = new ChatChannel("MissingDefault", "red", "red", "None", "None", false,
-					true, true, "md", 0, true, false, 0, "&f[&cMissingDefault&f]", "{venturechat_channel_prefix} {vault_prefix}{player_displayname}&c:");
+					true, true, "md", 0, true, false, 0, "&f[&cMissingDefault&f]", form);
 			defaultColor = defaultChatChannel.getColor();
 			chatChannels.put("missingdefault", defaultChatChannel);
 			chatChannels.put("md", defaultChatChannel);
@@ -194,7 +205,7 @@ public class ChatChannel {
 	 */
 	public ChatChannel(String name, String color, String chatColor, String permission, String speakPermission,
 			boolean mutable, boolean filter, boolean defaultChannel, String alias, double distance, boolean autojoin,
-			boolean bungee, int cooldown, String prefix, String format) {
+			boolean bungee, int cooldown, String prefix, HashMap<String, String> format) {
 		this.name = name;
 		this.color = color;
 		this.chatColor = chatColor;
@@ -233,7 +244,7 @@ public class ChatChannel {
 	@Deprecated
 	public ChatChannel(String name, String color, String chatColor, String permission, String speakPermission,
 			Boolean mutable, Boolean filter, Boolean defaultChannel, String alias, Double distance, Boolean autojoin,
-			Boolean bungee, int cooldown, String format) {
+			Boolean bungee, int cooldown, HashMap<String, String> format) {
 		this.name = name;
 		this.color = color;
 		this.chatColor = chatColor;
@@ -264,7 +275,7 @@ public class ChatChannel {
 	 * 
 	 * @return {@link String}
 	 */
-	public String getFormat() {
+	public HashMap<String, String> getFormat() {
 		return format;
 	}
 

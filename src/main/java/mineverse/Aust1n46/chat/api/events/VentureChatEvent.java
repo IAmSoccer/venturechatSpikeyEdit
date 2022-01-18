@@ -108,4 +108,5 @@ public class VentureChatEvent extends Event {
 	public static HandlerList getHandlerList() {
 	    return handlers;
 	}
+
 }
