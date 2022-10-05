@@ -10,6 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
@@ -22,6 +23,7 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.WrappedChatComponent;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import mineverse.Aust1n46.chat.ClickAction;
 import mineverse.Aust1n46.chat.api.MineverseChatAPI;
 import mineverse.Aust1n46.chat.api.MineverseChatPlayer;
 import mineverse.Aust1n46.chat.json.JsonAttribute;
@@ -112,28 +114,45 @@ public class Format {
 				formattedPlaceholder = Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(icp.getPlayer(), placeholder));
 				temp += convertToJsonColors(lastCode + remaining.substring(0, indexStart)) + ",";
 				lastCode = getLastCode(lastCode + remaining.substring(0, indexStart));
-				String action = "";
-				String text = "";
-				String hover = "";
+				boolean placeholderHasJsonAttribute = false;
 				for (JsonAttribute jsonAttribute : format.getJsonAttributes()) {
 					if (placeholder.contains(jsonAttribute.getName().replace("{", "").replace("}", ""))) {
-						action = jsonAttribute.getClickAction();
-						text = Format.FormatStringAll(
-								PlaceholderAPI.setBracketPlaceholders(icp.getPlayer(), jsonAttribute.getClickText()));
+						final StringBuilder hover = new StringBuilder();
 						for (String st : jsonAttribute.getHoverText()) {
-							hover += Format.FormatStringAll(st) + "\n";
+							hover.append(Format.FormatStringAll(st) + "\n");
 						}
+						final String hoverText;
+						if(!hover.isEmpty()) {
+							hoverText = Format.FormatStringAll(
+									PlaceholderAPI.setBracketPlaceholders(icp.getPlayer(), hover.substring(0, hover.length() - 1)));
+						} else {
+							hoverText = StringUtils.EMPTY;
+						}
+						final ClickAction clickAction = jsonAttribute.getClickAction();
+						final String actionJson;
+						if (clickAction == ClickAction.NONE) {
+							actionJson = StringUtils.EMPTY;
+						} else {
+							final String clickText = Format.FormatStringAll(
+									PlaceholderAPI.setBracketPlaceholders(icp.getPlayer(), jsonAttribute.getClickText()));
+							actionJson = ",\"clickEvent\":{\"action\":\"" + jsonAttribute.getClickAction().toString() + "\",\"value\":\"" + clickText
+							+ "\"}";
+						}
+						final String hoverJson;
+						if (hoverText.isEmpty()) {
+							hoverJson = StringUtils.EMPTY;
+						} else {
+							hoverJson = ",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":["
+									+ convertToJsonColors(hoverText) + "]}}";
+						}
+						temp += convertToJsonColors(lastCode + formattedPlaceholder, actionJson + hoverJson) + ",";
+						placeholderHasJsonAttribute = true;
+						break;
 					}
 				}
-				if(!hover.isEmpty()) {
-					hover = Format.FormatStringAll(
-							PlaceholderAPI.setBracketPlaceholders(icp.getPlayer(), hover.substring(0, hover.length() - 1)));
+				if (!placeholderHasJsonAttribute) {
+					temp += convertToJsonColors(lastCode + formattedPlaceholder) + ",";
 				}
-				temp += convertToJsonColors(lastCode + formattedPlaceholder,
-						",\"clickEvent\":{\"action\":\"" + action + "\",\"value\":\"" + text
-								+ "\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":["
-								+ convertToJsonColors(hover) + "]}}")
-						+ ",";
 				lastCode = getLastCode(lastCode + formattedPlaceholder);
 				remaining = remaining.substring(indexEnd);
 			} else {
@@ -160,7 +179,7 @@ public class Format {
 		do {
 			Pattern pattern = Pattern.compile(
 					"([a-zA-Z0-9" + BUKKIT_COLOR_CODE_PREFIX + "\\-:/]+\\.[a-zA-Z/0-9" + BUKKIT_COLOR_CODE_PREFIX
-							+ "\\-:_#]+(\\.[a-zA-Z/0-9." + BUKKIT_COLOR_CODE_PREFIX + "\\-:#\\?\\+=_]+)?)");
+							+ "\\-:_#]+(\\.[a-zA-Z/0-9." + BUKKIT_COLOR_CODE_PREFIX + "\\-:;,#\\?\\+=_]+)?)");
 			Matcher matcher = pattern.matcher(remaining);
 			if (matcher.find()) {
 				indexLink = matcher.start();
@@ -429,17 +448,39 @@ public class Format {
 	}
 
 	public static PacketContainer createPacketPlayOutChat(String json) {
-		WrappedChatComponent component = WrappedChatComponent.fromJson(json);
-		PacketContainer container = new PacketContainer(PacketType.Play.Server.CHAT);
-		container.getModifier().writeDefaults();
-		container.getChatComponents().write(0, component);
+		final PacketContainer container;
+		if (VersionHandler.isAbove_1_19()) {
+			container = new PacketContainer(PacketType.Play.Server.SYSTEM_CHAT);
+			container.getStrings().write(0, json);
+			container.getBooleans().write(0, false);
+		} else if (VersionHandler.isUnder_1_19()) {
+			WrappedChatComponent component = WrappedChatComponent.fromJson(json);
+			container = new PacketContainer(PacketType.Play.Server.CHAT);
+			container.getModifier().writeDefaults();
+			container.getChatComponents().write(0, component);
+		} else {
+			container = new PacketContainer(PacketType.Play.Server.SYSTEM_CHAT);
+			container.getStrings().write(0, json);
+			container.getIntegers().write(0, 1);
+		}
 		return container;
 	}
 
 	public static PacketContainer createPacketPlayOutChat(WrappedChatComponent component) {
-		PacketContainer container = new PacketContainer(PacketType.Play.Server.CHAT);
-		container.getModifier().writeDefaults();
-		container.getChatComponents().write(0, component);
+		final PacketContainer container;
+		if (VersionHandler.isAbove_1_19()) {
+			container = new PacketContainer(PacketType.Play.Server.SYSTEM_CHAT);
+			container.getStrings().write(0, component.getJson());
+			container.getBooleans().write(0, false);
+		} else if (VersionHandler.isUnder_1_19()) {
+			container = new PacketContainer(PacketType.Play.Server.CHAT);
+			container.getModifier().writeDefaults();
+			container.getChatComponents().write(0, component);
+		} else {
+			container = new PacketContainer(PacketType.Play.Server.SYSTEM_CHAT);
+			container.getStrings().write(0, component.getJson());
+			container.getIntegers().write(0, 1);
+		}
 		return container;
 	}
 

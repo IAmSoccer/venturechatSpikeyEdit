@@ -43,11 +43,12 @@ import mineverse.Aust1n46.chat.json.JsonFormat;
 import mineverse.Aust1n46.chat.listeners.ChatListener;
 import mineverse.Aust1n46.chat.listeners.CommandListener;
 import mineverse.Aust1n46.chat.listeners.LoginListener;
-import mineverse.Aust1n46.chat.listeners.PacketListener;
+import mineverse.Aust1n46.chat.listeners.PacketListenerLegacyChat;
 import mineverse.Aust1n46.chat.listeners.SignListener;
 import mineverse.Aust1n46.chat.localization.Localization;
 import mineverse.Aust1n46.chat.localization.LocalizedMessage;
 import mineverse.Aust1n46.chat.utilities.Format;
+import mineverse.Aust1n46.chat.versions.VersionHandler;
 import net.milkbowl.vault.chat.Chat;
 import net.milkbowl.vault.permission.Permission;
 
@@ -96,7 +97,6 @@ public class MineverseChat extends JavaPlugin implements PluginMessageListener {
 			else {
 				Bukkit.getConsoleSender().sendMessage(Format.FormatStringAll("&8[&eVentureChat&8]&e - Config found! Loading file."));
 			}
-
 			saveResource("example_config_always_up_to_date!.yml", true);
 		}
 		catch(Exception ex) {
@@ -108,6 +108,7 @@ public class MineverseChat extends JavaPlugin implements PluginMessageListener {
 		if(!setupPermissions() || !setupChat()) {
 			Bukkit.getConsoleSender().sendMessage(Format.FormatStringAll("&8[&eVentureChat&8]&e - &cCould not find Vault and/or a Vault compatible permissions plugin!"));
 			Bukkit.getPluginManager().disablePlugin(this);
+			return;
 		}
 
 		initializeConfigReaders();
@@ -203,7 +204,7 @@ public class MineverseChat extends JavaPlugin implements PluginMessageListener {
 						}
 					}
 				}
-				if (getConfig().getString("loglevel", "info").equals("debug")) {
+				if (getConfig().getString("loglevel", "info").equals("trace")) {
 					Bukkit.getConsoleSender()
 							.sendMessage(Format.FormatStringAll("&8[&eVentureChat&8]&e - Updating Player Mutes"));
 				}
@@ -218,7 +219,9 @@ public class MineverseChat extends JavaPlugin implements PluginMessageListener {
 		pluginManager.registerEvents(new SignListener(), this);
 		pluginManager.registerEvents(new CommandListener(), this);
 		pluginManager.registerEvents(new LoginListener(), this);
-		ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListener());
+		if (VersionHandler.isUnder_1_19()) {
+			ProtocolLibrary.getProtocolManager().addPacketListener(new PacketListenerLegacyChat());
+		}
 	}
 	
 	private boolean setupPermissions() {
@@ -246,7 +249,7 @@ public class MineverseChat extends JavaPlugin implements PluginMessageListener {
 		Alias.initialize();
 		JsonFormat.initialize();
 		GuiSlot.initialize();
-		ChatChannel.initialize(false);
+		ChatChannel.initialize();
 	}
 	
 	public static Chat getVaultChat() {
