@@ -481,16 +481,26 @@ public class ChatListener implements Listener {
 				if (p.getRangedSpy()) {
 
 					locreceip = p.getPlayer().getLocation();
+					if(locreceip.getWorld() != mcp.getPlayer().getWorld()) {
+						localChatRecipients.add(p.getPlayer());
+						if (chDistance != 0) {
+							recipients.remove(p.getPlayer());
+						}
+					}
 					if(locreceip.getWorld() == mcp.getPlayer().getWorld()) {
 						diff = locreceip.subtract(locsender);
 						if(Math.abs(diff.getX()) > chDistance || Math.abs(diff.getZ()) > chDistance || Math.abs(diff.getY()) > chDistance) {
 							localChatRecipients.add(p.getPlayer());
-							recipients.remove(p.getPlayer());
+							if (chDistance != 0) {
+								recipients.remove(p.getPlayer());
+							}
 							continue;
 						}
 						if(!mcp.getPlayer().canSee(p.getPlayer())) {
 							localChatRecipients.add(p.getPlayer());
-							recipients.remove(p.getPlayer());
+							if (chDistance != 0) {
+								recipients.remove(p.getPlayer());
+							}
 							continue;
 						}
 					}
@@ -554,14 +564,63 @@ public class ChatListener implements Listener {
 		hash = message.hashCode();
 		//Create VentureChatEvent
 		ventureChatEvent = new VentureChatEvent(mcp, mcp.getName(), mcp.getNickname(), MineverseChat.getVaultPermission().getPrimaryGroup(mcp.getPlayer()), eventChannel, recipients, recipientCount, format, chat, globalJSON, hash, bungee);
-		//Fire event and wait for other plugin listeners to act on it
-		Bukkit.getServer().getPluginManager().callEvent(ventureChatEvent);
 		//Call method to send the processed chat
-		handleVentureChatEvent(ventureChatEvent);
+		if (chDistance != 0) {
+			handleVentureChatEventRanged(ventureChatEvent);
+		}
 		// Reset quick chat flag
 		mcp.setQuickChat(false);
 	}
-	
+
+	public void handleVentureChatEventRanged(VentureChatEvent event) {
+		MineverseChatPlayer mcp = event.getMineverseChatPlayer();
+		ChatChannel channel = event.getChannel();
+		Set<Player> recipients = event.getRecipients();
+		String format = event.getFormat();
+		String chat = event.getChat();
+		String globalJSON = event.getGlobalJSON();
+		int hash = event.getHash();
+		boolean bungee = event.isBungee();
+
+		if(!bungee) {
+			for(Player p : recipients) {
+				String json = Format.formatModerationGUI(globalJSON, p, mcp.getName(), channel.getName(), hash);
+				PacketContainer packet = Format.createPacketPlayOutChat(json);
+				Format.sendPacketPlayOutChat(p, packet);
+			}
+			return;
+		}
+		else {
+			ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
+			DataOutputStream out = new DataOutputStream(byteOutStream);
+			try {
+				out.writeUTF("Chat");
+				out.writeUTF(channel.getName());
+				out.writeUTF(mcp.getName());
+				out.writeUTF(mcp.getUUID().toString());
+				out.writeBoolean(mcp.getBungeeToggle());
+				out.writeInt(hash);
+				out.writeUTF(format);
+				out.writeUTF(chat);
+				if(plugin.getConfig().getString("loglevel", "info").equals("debug")) {
+					System.out.println(out.size() + " size bytes without json");
+				}
+				out.writeUTF(globalJSON);
+				if(plugin.getConfig().getString("loglevel", "info").equals("debug")) {
+					System.out.println(out.size() + " bytes size with json");
+				}
+				out.writeUTF(MineverseChat.getVaultPermission().getPrimaryGroup(mcp.getPlayer()));
+				out.writeUTF(mcp.getNickname());
+				mcp.getPlayer().sendPluginMessage(plugin, MineverseChat.PLUGIN_MESSAGING_CHANNEL, byteOutStream.toByteArray());
+				out.close();
+			}
+			catch(Exception e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+	}
+
 	public void handleVentureChatEvent(VentureChatEvent event) {
 		MineverseChatPlayer mcp = event.getMineverseChatPlayer();
 		ChatChannel channel = event.getChannel();
