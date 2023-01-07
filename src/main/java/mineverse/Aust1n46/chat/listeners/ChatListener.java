@@ -356,14 +356,8 @@ public class ChatListener implements Listener {
 		}
 		
 		//format = Format.FormatStringAll(eventChannel.getFormat());
-		format = null;
 		HashMap<String, String> formatMap = eventChannel.getFormat();
-
-		for (Map.Entry<String, String> entry : formatMap.entrySet()) {
-			Permission perm = new Permission(entry.getKey().replace("_", "."), PermissionDefault.FALSE);
-			if (mcp.getPlayer().hasPermission(perm))  format = Format.FormatStringAll(entry.getValue());
-		}
-		if (format == null) format = formatMap.get("default");
+		format = formatMap.get("default");
 		
 		filterthis = eventChannel.isFiltered();
 		if(filterthis) {
@@ -648,6 +642,20 @@ public class ChatListener implements Listener {
 				}
 			}
 			for(Player p : recipients) {
+				chat = event.getChat();
+				globalJSON = event.getGlobalJSON();
+				hash = event.getHash();
+				HashMap<String, String> formatMap = channel.getFormat();
+				for (Map.Entry<String, String> entry : formatMap.entrySet()) {
+					String perm = (entry.getKey().replace("_", "."));
+					if (p.hasPermission(perm)) {
+						format = Format.FormatStringAll(entry.getValue());
+						globalJSON = Format.convertToJson(mcp, format, chat);
+						format = Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(mcp.getPlayer(), Format.FormatStringAll(format)));
+						String message = Format.stripColor(format + chat); // UTF-8 encoding issues.
+						hash = message.hashCode();
+					}
+				}
 				String json = Format.formatModerationGUI(globalJSON, p, mcp.getName(), channel.getName(), hash);
 				PacketContainer packet = Format.createPacketPlayOutChat(json);
 				Format.sendPacketPlayOutChat(p, packet);
