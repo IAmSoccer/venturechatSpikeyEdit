@@ -578,6 +578,17 @@ public class ChatListener implements Listener {
 
 		if(!bungee) {
 			for(Player p : recipients) {
+				HashMap<String, String> formatMap = channel.getFormat();
+				for (Map.Entry<String, String> entry : formatMap.entrySet()) {
+					String spyformat = (entry.getKey());
+					if (spyformat.equals("ranged_spy_format")) {
+						format = Format.FormatStringAll(entry.getValue());
+						globalJSON = Format.convertToJson(mcp, format, chat);
+						format = Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(mcp.getPlayer(), Format.FormatStringAll(format)));
+						String message = Format.stripColor(format + chat); // UTF-8 encoding issues.
+						hash = message.hashCode();
+					}
+				}
 				String json = Format.formatModerationGUI(globalJSON, p, mcp.getName(), channel.getName(), hash);
 				PacketContainer packet = Format.createPacketPlayOutChat(json);
 				Format.sendPacketPlayOutChat(p, packet);
@@ -648,7 +659,7 @@ public class ChatListener implements Listener {
 				HashMap<String, String> formatMap = channel.getFormat();
 				for (Map.Entry<String, String> entry : formatMap.entrySet()) {
 					String perm = (entry.getKey().replace("_", "."));
-					if (p.hasPermission(perm)) {
+					if (p.hasPermission(perm) && !perm.equals("ranged.spy.format")) {
 						format = Format.FormatStringAll(entry.getValue());
 						globalJSON = Format.convertToJson(mcp, format, chat);
 						format = Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(mcp.getPlayer(), Format.FormatStringAll(format)));
