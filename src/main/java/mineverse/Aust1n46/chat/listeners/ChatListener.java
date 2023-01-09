@@ -253,6 +253,7 @@ public class ChatListener implements Listener {
 			return;
 		}
 		Double chDistance = (double) 0;
+		String rawchat = "";
 		String curColor = "";
 		if(eventChannel.hasPermission() && !mcp.getPlayer().hasPermission(eventChannel.getPermission())) {
 			mcp.getPlayer().sendMessage(LocalizedMessage.CHANNEL_NO_PERMISSION.toString());
@@ -527,9 +528,11 @@ public class ChatListener implements Listener {
 		}
 		if(curColor.equalsIgnoreCase("None")) {
 			// Format the placeholders and their color codes to determine the last color code to use for the chat message color
+			rawchat = chat;
 			chat = Format.getLastCode(Format.FormatStringAll(PlaceholderAPI.setBracketPlaceholders(mcp.getPlayer(), format))) + chat;
 		}
 		else {
+			rawchat = chat;
 			chat = curColor + chat;
 		}
 		
@@ -550,6 +553,7 @@ public class ChatListener implements Listener {
 		//ranged spy
 
 		format = Format.FormatStringColor(plugin.getConfig().getString("rangedspyprefix")) + format;
+		chat = Format.FormatStringColor(plugin.getConfig().getString("rangedspychatcolor")) + rawchat;
 		recipients = localChatRecipients;
 		recipientCount = 100;
 		globalJSON = Format.convertToJson(mcp, format, chat);

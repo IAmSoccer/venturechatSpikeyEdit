@@ -4,6 +4,8 @@
 #===============================================================
 
 rangedspyprefix: '&f[&cRangedSpy&f]'
+rangedspychatcolor: '&8'
+
 # - regex1,regex2
 # Simple regex tips: Use \b to "cut" a section of the word or phrase.  Example: \bass,donuts
 # Example filtered sentence: You are an ass.  Will become: You are an donuts.  
